@@ -16,6 +16,8 @@ pub struct FileManager {
     block_size: usize,
     is_new: bool,
     open_files: HashMap<String, Arc<Mutex<File>>>,
+    total_blocks_read: usize,
+    total_blocks_write: usize,
 }
 
 impl FileManager {
@@ -38,6 +40,8 @@ impl FileManager {
             block_size,
             is_new,
             open_files: HashMap::new(),
+            total_blocks_read: 0,
+            total_blocks_write: 0,
         })
     }
 
@@ -48,6 +52,8 @@ impl FileManager {
             (block.block_number() * self.block_size) as u64,
         ))?;
         guard.read_exact(&mut page.contents().as_bytes().to_vec())?;
+
+        self.total_blocks_read += 1;
 
         Ok(())
     }
@@ -60,6 +66,8 @@ impl FileManager {
         ))?;
         guard.write_all(page.contents().as_bytes())?;
         guard.sync_all()?;
+
+        self.total_blocks_write += 1;
 
         Ok(())
     }
@@ -77,6 +85,8 @@ impl FileManager {
         guard.write_all(&bytes)?;
         guard.sync_all()?;
 
+        self.total_blocks_write += 1;
+
         Ok(block)
     }
 
@@ -87,6 +97,22 @@ impl FileManager {
 
         //ceiling
         Ok((len as usize + self.block_size - 1) / self.block_size)
+    }
+
+    pub fn is_new(&self) -> bool {
+        self.is_new
+    }
+
+    pub fn block_size(&self) -> usize {
+        self.block_size
+    }
+
+    pub fn get_total_blocks_read(&self) -> usize {
+        self.total_blocks_read
+    }
+
+    pub fn get_total_blocks_write(&self) -> usize {
+        self.total_blocks_write
     }
 
     fn get_file(&mut self, filename: &str) -> Result<Arc<Mutex<File>>> {
@@ -116,7 +142,32 @@ mod test {
 
     use super::FileManager;
     use crate::file::{block_id::BlockId, page::Page};
+    use chrono::NaiveDate;
     use tempfile::tempdir;
+
+    #[test]
+    fn test_read_write_short() {
+        let temp_dir = tempdir().unwrap();
+        let db_dir = temp_dir.path().to_str().unwrap();
+        let block_size = 512;
+
+        let mut file_manager = FileManager::new(db_dir, block_size).unwrap();
+
+        let filename = "simple_short.tbl";
+        let block = BlockId::new(filename, 0);
+
+        let mut page = Page::new(block_size);
+        page.set_short(0, 10).unwrap();
+
+        // write the page
+        file_manager.write(&block, &mut page).unwrap();
+
+        // read the page
+        file_manager.read(&block, &mut page).unwrap();
+
+        assert_eq!(page.get_short(0).unwrap(), 10);
+        assert_eq!(file_manager.length(filename).unwrap(), 1);
+    }
 
     #[test]
     fn test_read_write_int() {
@@ -175,7 +226,7 @@ mod test {
 
         let mut file_manager = FileManager::new(db_dir, block_size).unwrap();
 
-        let filename = "simple_string";
+        let filename = "simple_string.tbl";
         let block = BlockId::new(filename, 0);
 
         let mut page = Page::new(block_size);
@@ -208,5 +259,83 @@ mod test {
         assert_eq!(block2.block_number(), 1);
 
         assert_eq!(file_manager.length(filename).unwrap(), 2);
+    }
+
+    #[test]
+    fn test_read_write_bool() {
+        let temp_dir = tempdir().unwrap();
+        let db_dir = temp_dir.path().to_str().unwrap();
+        let block_size = 512;
+
+        let mut file_manager = FileManager::new(db_dir, block_size).unwrap();
+
+        let filename = "simple_bool.tbl";
+        let block = BlockId::new(filename, 0);
+
+        let mut page = Page::new(block_size);
+        page.set_bool(0, true).unwrap();
+        page.set_bool(1, false).unwrap();
+
+        // write the page
+        file_manager.write(&block, &mut page).unwrap();
+
+        // read the page
+        file_manager.read(&block, &mut page).unwrap();
+
+        assert!(page.get_bool(0).unwrap());
+        assert!(!page.get_bool(1).unwrap());
+        assert_eq!(file_manager.length(filename).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_read_write_date() {
+        let temp_dir = tempdir().unwrap();
+        let db_dir = temp_dir.path().to_str().unwrap();
+        let block_size = 512;
+
+        let mut file_manager = FileManager::new(db_dir, block_size).unwrap();
+
+        let filename = "simple_date.tbl";
+        let block = BlockId::new(filename, 0);
+
+        let mut page = Page::new(block_size);
+        let test_date = NaiveDate::from_ymd_opt(2024, 10, 1).unwrap();
+        page.set_date(0, test_date).unwrap();
+
+        // write the page
+        file_manager.write(&block, &mut page).unwrap();
+
+        // read the page
+        file_manager.read(&block, &mut page).unwrap();
+
+        assert_eq!(page.get_date(0).unwrap(), test_date);
+        assert_eq!(file_manager.length(filename).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_statistics() {
+        let temp_dir = tempdir().unwrap();
+        let db_dir = temp_dir.path().to_str().unwrap();
+        let block_size = 512;
+
+        let mut file_manager = FileManager::new(db_dir, block_size).unwrap();
+
+        let filename = "stats_test.tbl";
+        let block = BlockId::new(filename, 0);
+
+        let mut page = Page::new(block_size);
+        page.set_int(0, 42).unwrap();
+
+        assert_eq!(file_manager.get_total_blocks_read(), 0);
+        assert_eq!(file_manager.get_total_blocks_write(), 0);
+
+        file_manager.write(&block, &mut page).unwrap();
+        assert_eq!(file_manager.get_total_blocks_write(), 1);
+
+        file_manager.read(&block, &mut page).unwrap();
+        assert_eq!(file_manager.get_total_blocks_read(), 1);
+
+        file_manager.append(filename).unwrap();
+        assert_eq!(file_manager.get_total_blocks_write(), 2);
     }
 }

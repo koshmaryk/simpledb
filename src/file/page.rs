@@ -1,5 +1,6 @@
 use anyhow::{Ok, Result};
 use bytebuffer::ByteBuffer;
+use chrono::{Datelike, NaiveDate};
 use std::mem;
 
 #[derive(Debug)]
@@ -18,6 +19,17 @@ impl Page {
         Self {
             buf: ByteBuffer::from_vec(bytes),
         }
+    }
+
+    pub fn get_short(&mut self, offset: usize) -> Result<i16> {
+        self.buf.set_rpos(offset);
+        Ok(self.buf.read_i16()?)
+    }
+
+    pub fn set_short(&mut self, offset: usize, n: i16) -> Result<()> {
+        self.buf.set_wpos(offset);
+        self.buf.write_i16(n);
+        Ok(())
     }
 
     pub fn get_int(&mut self, offset: usize) -> Result<i32> {
@@ -52,6 +64,35 @@ impl Page {
     pub fn set_string(&mut self, offset: usize, s: &str) -> Result<()> {
         self.buf.set_wpos(offset);
         self.buf.write_string(s);
+        Ok(())
+    }
+
+    pub fn get_bool(&mut self, offset: usize) -> Result<bool> {
+        self.buf.set_rpos(offset);
+        Ok(self.buf.read_u8().map(|n| n != 0)?)
+    }
+
+    pub fn set_bool(&mut self, offset: usize, b: bool) -> Result<()> {
+        let n = if b { 1 } else { 0 };
+
+        self.buf.set_wpos(offset);
+        self.buf.write_u8(n);
+
+        Ok(())
+    }
+
+    pub fn get_date(&mut self, offset: usize) -> Result<NaiveDate> {
+        self.buf.set_rpos(offset);
+        Ok(self
+            .buf
+            .read_i32()
+            .map(|days| NaiveDate::from_num_days_from_ce_opt(days).unwrap())?)
+    }
+
+    pub fn set_date(&mut self, offset: usize, date: NaiveDate) -> Result<()> {
+        self.buf.set_wpos(offset);
+        self.buf.write_i32(date.num_days_from_ce());
+
         Ok(())
     }
 
