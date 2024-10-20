@@ -1,4 +1,4 @@
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
@@ -7,8 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::block_id::BlockId;
-use super::page::Page;
+use super::{block_id::BlockId, page::Page};
 
 #[derive(Debug)]
 pub struct FileManager {
@@ -140,10 +139,11 @@ impl FileManager {
 #[cfg(test)]
 mod test {
 
-    use super::FileManager;
-    use crate::file::{block_id::BlockId, page::Page};
     use chrono::NaiveDate;
     use tempfile::tempdir;
+
+    use super::FileManager;
+    use crate::file::{block_id::BlockId, page::Page};
 
     #[test]
     fn test_read_write_short() {
