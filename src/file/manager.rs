@@ -50,7 +50,11 @@ impl FileManager {
         guard.seek(SeekFrom::Start(
             (block.block_number() * self.block_size) as u64,
         ))?;
-        guard.read_exact(&mut page.contents().as_bytes().to_vec())?;
+
+        let mut temp_buf = vec![0u8; self.block_size()];
+        guard.read_exact(&mut temp_buf)?;
+        page.contents().clear();
+        page.contents().write_bytes(&temp_buf);
 
         self.total_blocks_read += 1;
 

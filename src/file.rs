@@ -1,3 +1,3 @@
 pub mod block_id;
-pub mod file_manager;
+pub mod manager;
 pub mod page;
