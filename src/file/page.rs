@@ -18,7 +18,7 @@ impl fmt::Display for PageError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Page {
     buf: ByteBuffer,
 }

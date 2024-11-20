@@ -1,7 +1,7 @@
 use anyhow::{Ok, Result};
 use std::sync::{Arc, Mutex};
 
-use crate::file::{block_id::BlockId, manager::FileManager, page::Page};
+use crate::{file::{block_id::BlockId, manager::FileManager, page::Page}, Lsn};
 
 use super::iterator::LogIterator;
 
@@ -12,8 +12,8 @@ pub struct LogManager {
     logpage: Page,
     current_block: BlockId,
     // log sequence number
-    latest_lsn: usize,
-    last_saved_lsn: usize,
+    latest_lsn: Lsn,
+    last_saved_lsn: Lsn,
 }
 
 /// The log manager is responsible for writing log records to the log file from right to left.
@@ -49,7 +49,7 @@ impl LogManager {
     }
 
     /// Ensures that the log record with specified LSN (and all previous log records) is written to disk
-    pub fn flush(&mut self, lsn: usize) -> Result<()> {
+    pub fn flush(&mut self, lsn: Lsn) -> Result<()> {
         if lsn >= self.last_saved_lsn {
             self.do_flush()?;
         }
@@ -67,7 +67,7 @@ impl LogManager {
     /// which enables the log iterator to read records in reverse order.
     /// The first 4 bytes of the page is the ofsset of the most recently added record,
     /// so that the iterator will know where the records begin.
-    pub fn append(&mut self, logrec: &[u8]) -> Result<usize> {
+    pub fn append(&mut self, logrec: &[u8]) -> Result<i64> {
         let mut boundary = self.logpage.get_int(0)?;
         let int_bytes = std::mem::size_of::<i32>() as i32;
         let recsize = logrec.len() as i32;
@@ -166,8 +166,8 @@ mod tests {
         for i in start..=end {
             let s = format!("record{}", i);
             let rec = create_log_record(s.as_str(), i + 100);
-            let lsn = log_manager.lock().unwrap().append(&rec).unwrap() as i32;
-            assert_eq!(i, lsn);
+            let lsn = log_manager.lock().unwrap().append(&rec).unwrap();
+            assert_eq!(i as i64, lsn);
         }
     }
 

@@ -47,14 +47,15 @@ impl FileManager {
     pub fn read(&mut self, block: &BlockId, page: &mut Page) -> Result<()> {
         let file = self.get_file(block.filename())?;
         let mut guard = file.lock().unwrap();
-        guard.seek(SeekFrom::Start(
-            (block.block_number() * self.block_size) as u64,
-        ))?;
+        let pos = (block.block_number() * self.block_size) as u64;
+        guard.seek(SeekFrom::Start(pos))?;
 
-        let mut temp_buf = vec![0u8; self.block_size()];
-        guard.read_exact(&mut temp_buf)?;
-        page.contents().clear();
-        page.contents().write_bytes(&temp_buf);
+        if guard.metadata()?.len() >= pos + page.contents().len() as u64 {
+            let mut temp_buf = vec![0u8; page.contents().len()];
+            guard.read_exact(&mut temp_buf)?;
+            page.contents().clear();
+            page.contents().write_bytes(&temp_buf);
+        }
 
         self.total_blocks_read += 1;
 
