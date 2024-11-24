@@ -101,13 +101,11 @@ mod tests {
             .to_str()
             .unwrap()
             .to_string();
-        
+
         let block_size = 400;
         let num_buffers = 3; // only 3 buffers
 
-        let file_manager = Arc::new(Mutex::new(
-            FileManager::new(db_dir, block_size).unwrap(),
-        ));
+        let file_manager = Arc::new(Mutex::new(FileManager::new(db_dir, block_size).unwrap()));
         let log_manager = Arc::new(Mutex::new(
             LogManager::new(Arc::clone(&file_manager), &test_log_file).unwrap(),
         ));
@@ -126,7 +124,7 @@ mod tests {
 
             let n = state.buffer_pool[idx1].contents.get_int(80).unwrap();
             state.buffer_pool[idx1].contents.set_int(80, n + 1).unwrap();
-            state.buffer_pool[idx1].set_modified(1, 0).unwrap();// placeholder values
+            state.buffer_pool[idx1].set_modified(1, 0).unwrap(); // placeholder values
             assert_eq!(1, n + 1);
         }
 
