@@ -66,6 +66,21 @@ impl Page {
         Ok(())
     }
 
+    pub fn get_long(&mut self, offset: usize) -> Result<i64> {
+        self.buf.set_rpos(offset);
+        Ok(self.buf.read_i64()?)
+    }
+
+    pub fn set_long(&mut self, offset: usize, n: i64) -> Result<()> {
+        if offset + std::mem::size_of::<i64>() > self.buf.len() {
+            bail!(PageError::BufferSizeExceeded)
+        }
+
+        self.buf.set_wpos(offset);
+        self.buf.write_i64(n);
+        Ok(())
+    }
+
     pub fn get_bytes(&mut self, offset: usize) -> Result<Vec<u8>> {
         self.buf.set_rpos(offset);
         let len = self.buf.read_i32()? as usize;

@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{
     sync::{Arc, Condvar, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use anyhow::{Error, Ok, Result};
@@ -82,7 +82,6 @@ impl BufferManager {
     pub fn pin(&self, block: &BlockId) -> Result<usize> {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().unwrap();
-        let start_time = Instant::now();
 
         loop {
             if let Some(idx) = self.try_to_pin(block, &mut state) {
@@ -95,13 +94,13 @@ impl BufferManager {
 
             state = new_state;
 
-            if timeout.timed_out() && start_time.elapsed().as_millis() >= MAX_TIME {
+            if timeout.timed_out() {
                 return Err(Error::new(BufferManagerError::BufferAbort));
             }
         }
     }
 
-    pub fn flush_all(&self, txnum: i64) -> Result<()> {
+    pub fn flush_all(&self, txnum: i32) -> Result<()> {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().unwrap();
 
@@ -150,7 +149,7 @@ impl BufferManager {
             .buffer_pool
             .iter()
             .enumerate()
-            .find(|(_, buffer)| buffer.block.contains(block))
+            .find(|(_, buffer)| buffer.block().contains(block))
             .map(|(idx, _)| idx)
     }
 
@@ -238,11 +237,11 @@ mod tests {
                     let x: Vec<Option<BlockId>> = state
                         .buffer_pool
                         .iter_mut()
-                        .map(|buf| buf.block.clone())
+                        .map(|buf| buf.block().clone())
                         .collect();
                     println!("{:?}", x);
 
-                    let actual = state.buffer_pool[idx].block.as_ref();
+                    let actual = state.buffer_pool[idx].block().as_ref();
                     println!("i: {}, idx: {}", i, idx);
                     println!("buff[{}] pinned to block {:?}", i, actual.unwrap());
                     assert_eq!(expected.get(&i).unwrap(), actual.unwrap());

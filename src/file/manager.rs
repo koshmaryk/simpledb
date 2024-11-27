@@ -199,6 +199,30 @@ mod test {
     }
 
     #[test]
+    fn test_read_write_long() {
+        let temp_dir = tempdir().unwrap();
+        let db_dir = temp_dir.path().to_str().unwrap();
+        let block_size = 512;
+
+        let mut file_manager = FileManager::new(db_dir, block_size).unwrap();
+
+        let filename = "simple_long.tbl";
+        let block = BlockId::new(filename, 0);
+
+        let mut page = Page::new(block_size);
+        page.set_long(0, i64::MAX).unwrap();
+
+        // write the page
+        file_manager.write(&block, &mut page).unwrap();
+
+        // read the page
+        file_manager.read(&block, &mut page).unwrap();
+
+        assert_eq!(page.get_long(0).unwrap(), i64::MAX);
+        assert_eq!(file_manager.length(filename).unwrap(), 1);
+    }
+
+    #[test]
     fn test_read_write_bytes() {
         let temp_dir = tempdir().unwrap();
         let db_dir = temp_dir.path().to_str().unwrap();

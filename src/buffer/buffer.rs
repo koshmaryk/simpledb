@@ -11,10 +11,10 @@ use crate::{
 pub struct Buffer {
     file_manager: Arc<Mutex<FileManager>>,
     log_manager: Arc<Mutex<LogManager>>,
-    pub contents: Page,
-    pub block: Option<BlockId>,
+    contents: Page,
+    block: Option<BlockId>,
     pins: u32,
-    pub txnum: Lsn,
+    pub txnum: i32,
     lsn: Lsn,
 }
 
@@ -32,7 +32,15 @@ impl Buffer {
         }
     }
 
-    pub fn set_modified(&mut self, txnum: i64, lsn: Lsn) -> Result<()> {
+    pub fn contents(&mut self) -> &mut Page {
+        &mut self.contents
+    }
+
+    pub fn block(&self) -> &Option<BlockId> {
+        &self.block
+    }
+
+    pub fn set_modified(&mut self, txnum: i32, lsn: Lsn) -> Result<()> {
         self.txnum = txnum;
         if lsn >= 0 {
             self.lsn = lsn;
@@ -122,8 +130,11 @@ mod tests {
             let (lock, _) = &*buffer_manager.state;
             let mut state = lock.lock().unwrap();
 
-            let n = state.buffer_pool[idx1].contents.get_int(80).unwrap();
-            state.buffer_pool[idx1].contents.set_int(80, n + 1).unwrap();
+            let n = state.buffer_pool[idx1].contents().get_int(80).unwrap();
+            state.buffer_pool[idx1]
+                .contents()
+                .set_int(80, n + 1)
+                .unwrap();
             state.buffer_pool[idx1].set_modified(1, 0).unwrap(); // placeholder values
             assert_eq!(1, n + 1);
         }
@@ -144,7 +155,10 @@ mod tests {
             let (lock, _) = &*buffer_manager.state;
             let mut state = lock.lock().unwrap();
 
-            state.buffer_pool[idx2].contents.set_int(80, 9999).unwrap();
+            state.buffer_pool[idx2]
+                .contents()
+                .set_int(80, 9999)
+                .unwrap();
             state.buffer_pool[idx2].set_modified(1, 0).unwrap(); // This modification won't get written to disk
         }
 
